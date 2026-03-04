@@ -1,0 +1,3 @@
+- the goal is to build a highly optimized minimal transformer, custom attention kernel, benchmark
+- ill keep track of all the optimizations here
+- for now just watch
