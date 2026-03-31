@@ -32,8 +32,6 @@ int main(int argc, char** argv) {
     int v = argi(argc, argv, "--v", 0);
     std::string kernel = args(argc, argv, "--kernel", "axpy");
 
-    size_t bytes = (size_t)n * sizeof(float);
-
     int num_variants = sizeof(axpy_launchers) / sizeof(axpy_launchers[0]);
     if (v < 0 || v >= num_variants) {
         printf("invalid kernel version\n");

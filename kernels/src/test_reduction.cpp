@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <string>
 #include <cmath>
+#include <random>
 #include <cuda_runtime.h>
 
 #include "ck.cuh"
@@ -10,6 +11,8 @@
 
 LaunchFn reduction_launchers[] = {
     reduction_launch_v0,
+    reduction_launch_v1,
+    reduction_launch_v2,
 };
 
 struct ReductionRunConfig {
@@ -47,14 +50,17 @@ int run_reduction(const ReductionRunConfig& cfg) {
 
     float* h_block_sums;
     float* h_x;
-    float h_ref= 0.0f;
+    double h_ref= 0.0f;
 
     ck(cudaMallocHost(&h_x, bytes));
     ck(cudaMallocHost(&h_block_sums, grid * sizeof(float)));
 
+    std::mt19937 gen(42);
+    std::uniform_real_distribution<float> dist(-10, 10);
 
     for (int i = 0; i < n; i++){
-        h_x[i] = i * 0.001f;
+        h_x[i] = 1.0f;
+        //h_x[i] = dist(gen);
     }
 
     for (int i = 0 ; i < n; i++){
@@ -79,7 +85,6 @@ int run_reduction(const ReductionRunConfig& cfg) {
         for (int i = 0; i < grid; i++){
             gpu_sum += h_block_sums[i];
         }
-
         float err = std::fabs(h_ref - gpu_sum);
 
         std::printf("kernel=reduction:%i error:%.2f\n", v, err );
