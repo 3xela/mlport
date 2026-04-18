@@ -70,7 +70,7 @@ static inline void axpy_launch_v2(void* p) {
     int cap = 304;
     int grid_full = (c->n  + c->block -1)/ c->block;
     int grid = std::min(grid_full, cap);
-    axpy_kernel_v1<<<grid, c->block>>>(c->x, c->y, c->a, c->n);
+    axpy_kernel_v2<<<grid, c->block>>>(c->x, c->y, c->a, c->n);
 }
 
 using LaunchFn = void(*)(void*);
