@@ -4,8 +4,8 @@
 #include <cmath>
 #include <cuda_runtime.h>
 
-#include "test_axpy.cpp"
-#include "test_reduction.cpp"
+#include "harness/axpy.cu"
+#include "harness/reduction.cu"
 #include "ck.cuh"
 #include "bench.cuh"
 

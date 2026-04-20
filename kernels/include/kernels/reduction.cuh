@@ -3,6 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
+#include "launch.cuh"
+
 struct ReductionCtx{
     const float* x;
     float* block_sums;
@@ -188,5 +190,3 @@ static inline void full_reduction_launch(void* p){
     reduction_kernel_v2<<<grid, 256>>>(c->x, c->block_sums ,c->n);
     reduction_kernel_v2<<<1, 256>>>(c->block_sums, c->final_sum, 152);
 }
-
-using LaunchFn = void(*)(void*);

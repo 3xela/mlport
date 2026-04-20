@@ -3,6 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
+#include "launch.cuh"
+
 struct AxpyCtx {
     const float* x;
     float* y;
@@ -72,5 +74,3 @@ static inline void axpy_launch_v2(void* p) {
     int grid = std::min(grid_full, cap);
     axpy_kernel_v2<<<grid, c->block>>>(c->x, c->y, c->a, c->n);
 }
-
-using LaunchFn = void(*)(void*);
