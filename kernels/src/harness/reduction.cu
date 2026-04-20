@@ -7,14 +7,17 @@
 
 #include "ck.cuh"
 #include "bench.cuh"
+#include "launch.cuh"
+
 #include "kernels/reduction.cuh"
+
 
 LaunchFn reduction_launchers[] = {
     reduction_launch_v0,
     reduction_launch_v1,
     reduction_launch_v2,
+    reduction_launch_v3,    
     full_reduction_launch,
-    reduction_launch_v4,
 };
 
 struct ReductionRunConfig {
@@ -25,9 +28,6 @@ struct ReductionRunConfig {
     int iters;
     bool test;
     int v;
-
-    ReductionRunConfig(int n_, int block_, int grid_, int warmup_, int iters_, bool test_, int v_)
-        : n(n_), block(block_), grid(grid_), warmup(warmup_), iters(iters_), test(test_), v(v_) {}
 };
 
 int run_reduction(const ReductionRunConfig& cfg) {
@@ -77,7 +77,6 @@ int run_reduction(const ReductionRunConfig& cfg) {
 
     ReductionCtx ctx{d_x, d_block_sums, d_final_sum, n};
 
-
     if (test){
         launch(&ctx);
         ck(cudaGetLastError());
@@ -92,17 +91,17 @@ int run_reduction(const ReductionRunConfig& cfg) {
                 gpu_sum += h_block_sums[i];
             }
             std::printf("gpu sum:%.2f ref host sum: %.2f\n" ,gpu_sum, h_ref);
-            float err = std::fabs(h_ref - gpu_sum);
+            err = std::fabs(h_ref - gpu_sum);
         }
         else{
-            float err = std::fabs(h_ref - h_final_sum[0]);
+            err = std::fabs(h_ref - h_final_sum[0]);
         }
         std::printf("kernel=reduction:%i error:%.2f\n", v, err );
     }
     else {
         float ms = bench_kernel_ms(launch, &ctx, warmup, iters);
         ck(cudaGetLastError());
-        double bytes_moved = (double)n ;
+        double bytes_moved = n *sizeof(float);
         double bw = gbps_mem(bytes_moved, (double)ms);
 
         std::printf("kernel=reduction:%i n=%d block=%d time_ms=%.6f bw_gbps=%.2f version=%d\n", v, n, block, ms, bw, v);
