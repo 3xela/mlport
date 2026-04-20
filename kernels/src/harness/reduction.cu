@@ -7,7 +7,10 @@
 
 #include "ck.cuh"
 #include "bench.cuh"
+#include "launch.cuh"
+
 #include "kernels/reduction.cuh"
+
 
 LaunchFn reduction_launchers[] = {
     reduction_launch_v0,
@@ -25,9 +28,6 @@ struct ReductionRunConfig {
     int iters;
     bool test;
     int v;
-
-    ReductionRunConfig(int n_, int block_, int grid_, int warmup_, int iters_, bool test_, int v_)
-        : n(n_), block(block_), grid(grid_), warmup(warmup_), iters(iters_), test(test_), v(v_) {}
 };
 
 int run_reduction(const ReductionRunConfig& cfg) {
@@ -76,7 +76,6 @@ int run_reduction(const ReductionRunConfig& cfg) {
     ck(cudaMemcpy(d_x, h_x, bytes, cudaMemcpyHostToDevice));
 
     ReductionCtx ctx{d_x, d_block_sums, d_final_sum, n};
-
 
     if (test){
         launch(&ctx);

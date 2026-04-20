@@ -6,6 +6,8 @@
 
 #include "ck.cuh"
 #include "bench.cuh"
+#include "launch.cuh"
+
 #include "kernels/axpy.cuh"
 
 LaunchFn axpy_launchers[] = {
@@ -21,9 +23,6 @@ struct AxpyRunConfig {
     int iters;
     bool test;
     int v;
-
-    AxpyRunConfig(int n_, int block_, int warmup_, int iters_, bool test_, int v_)
-        : n(n_), block(block_), warmup(warmup_), iters(iters_), test(test_), v(v_) {}
 };
 
 int run_axpy(const AxpyRunConfig& cfg) {

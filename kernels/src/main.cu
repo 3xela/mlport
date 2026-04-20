@@ -4,8 +4,8 @@
 #include <cmath>
 #include <cuda_runtime.h>
 
-#include "harness/axpy.cu"
-#include "harness/reduction.cu"
+#include "harness/axpy.h"
+#include "harness/reduction.h"
 #include "ck.cuh"
 #include "bench.cuh"
 
@@ -33,11 +33,11 @@ int main(int argc, char** argv) {
     std::string kernel = args(argc, argv, "--kernel", "axpy");
 
     if (kernel == "axpy"){
-        AxpyRunConfig cfg(n, block, warmup, iters, test, v);
+        AxpyRunConfig cfg{n, block, warmup, iters, test, v};
         run_axpy(cfg);
     }
     else if (kernel == "reduction"){
-        ReductionRunConfig cfg(n, block, grid, warmup, iters, test, v);
+        ReductionRunConfig cfg {n, block, grid, warmup, iters, test, v};
         run_reduction(cfg);
     }
 

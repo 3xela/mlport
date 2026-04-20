@@ -3,8 +3,6 @@
 #include <cmath>
 #include <algorithm>
 
-#include "launch.cuh"
-
 struct ReductionCtx{
     const float* x;
     float* block_sums;
