@@ -15,6 +15,7 @@ SRCS := src/main.cu \
         src/harness/axpy.cu \
         src/harness/reduction.cu \
         src/kernels/axpy.cu \
+		src/kernels/reduction.cu \
 
 OBJS := $(patsubst src/%.cu,$(BUILD_DIR)/%.o,$(SRCS))
 

@@ -16,8 +16,8 @@ LaunchFn reduction_launchers[] = {
     reduction_launch_v0,
     reduction_launch_v1,
     reduction_launch_v2,
+    reduction_launch_v3,    
     full_reduction_launch,
-    reduction_launch_v4,
 };
 
 struct ReductionRunConfig {
