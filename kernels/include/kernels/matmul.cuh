@@ -3,11 +3,11 @@
 #include "launch.cuh"
 
 struct MatMulCtx {
-    int N;
     int M;
     int K;
-    float* A;
-    float* B; 
+    int N;
+    const float* A;
+    const float* B; 
     float* C;
     int block;
 }
