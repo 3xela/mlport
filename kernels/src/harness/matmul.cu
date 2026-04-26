@@ -13,27 +13,30 @@
 
 LaunchFn matmul_launchers[] = {
     matmul_launch_v0,
-}
+};
 
-struct MatMulRunConfig {
-    int M, K, N;
+struct MatMulRunConfig{
+    int const M;
+    int const K;
+    int const N;
     int block;
-    int grid; 
-    int warmup; 
-    int iters; 
-    bool test; 
+    int grid;
+    int warmup;
+    int iters;
+    bool test;
     int v;
-}
+};
 
 int run_matmul(const MatMulRunConfig& cfg){
-    int M = cfg->M; 
-    int K = cfg->K;
-    int N = cfg->N;
-    int block = cfg->block;
-    int warmup = cfg->warmup;
-    int iters = cfg->iters;
-    int v = cfg->v;
-    bool test = cfg->test;
+    const int M = cfg.M; 
+    const int K = cfg.K;
+    const int N = cfg.N;
+    int block = cfg.block;
+    int grid = cfg.grid;
+    int warmup = cfg.warmup;
+    int iters = cfg.iters;
+    int v = cfg.v;
+    bool test = cfg.test;
 
 
     int num_variants = sizeof(matmul_launchers) / sizeof(matmul_launchers[0]);
@@ -44,11 +47,13 @@ int run_matmul(const MatMulRunConfig& cfg){
     
     auto launch = matmul_launchers[v];
 
-    size_t A_bytes = (size_t)M*K * sizeof(floats);
-    size_t B_bytes = (size_t)K*N * sizeof(floats);
-    size_t C_bytes = (size_t)M*N * sizeof(floats);
+    size_t A_bytes = (size_t)M*K * sizeof(float);
+    size_t B_bytes = (size_t)K*N * sizeof(float);
+    size_t C_bytes = (size_t)M*N * sizeof(float);
 
-    float* h_A, h_B, h_C;
+    float* h_A;
+    float* h_B;
+    float* h_C;
     float* ref_C;
 
     ck(cudaMallocHost(&h_A, A_bytes));
@@ -76,12 +81,14 @@ int run_matmul(const MatMulRunConfig& cfg){
         for (int j = 0; j < N; j++){
             float acc = 0.0f;
             for (int k = 0; k < K; k++){
-                acc += A[i * K + k] * B[k * N + j];
+                acc += h_A[i * K + k] * h_B[k * N + j];
             }
             ref_C[i * N + j] = acc;
         }
     }
-    float* d_A, d_B, d_C; 
+    float* d_A;
+    float* d_B;
+    float* d_C; 
     ck(cudaMalloc(&d_A, A_bytes));
     ck(cudaMalloc(&d_B, B_bytes));
     ck(cudaMalloc(&d_C, C_bytes));
@@ -94,6 +101,30 @@ int run_matmul(const MatMulRunConfig& cfg){
 
     // test loop
 
+    if (test){
+        launch(&ctx);
+        ck(cudaGetLastError());
+        ck(cudaDeviceSynchronize());
+        ck(cudaMemcpy(h_C, d_C, C_bytes, cudaMemcpyDeviceToHost));
+
+        float max_rel = 0.0f;
+        for (int i = 0; i < M*N; i++) {
+            float err = fabsf(h_C[i] - ref_C[i]);
+            float rel = err / (fabsf(ref_C[i]) + 1e-6f); 
+            max_rel = fmaxf(max_rel, rel);
+        }
+        std::printf("kernel=matmul:%i error:%.2f\n", v, max_rel);
+    }
+    else{
+        float ms = bench_kernel_ms(launch, &ctx, warmup, iters);
+        ck(cudaGetLastError());
+        double flops = 2.0 * (double)M * N * K; 
+        double gflops = flops / (ms * 1e-3) / 1e9;
+        double tflops = gflops / 1000;
+
+        std::printf("kernel=matmul:%i N=%i K=%i M =%i GFLOPS:%.2f", v, N, M, K, gflops);
+    }
+
 
     ck(cudaFree(d_A));
     ck(cudaFree(d_B));
@@ -101,5 +132,8 @@ int run_matmul(const MatMulRunConfig& cfg){
 
     ck(cudaFreeHost(h_A));
     ck(cudaFreeHost(h_B));
+    ck(cudaFreeHost(h_C));
+
     ck(cudaFreeHost(ref_C));
+    return 0;
 }

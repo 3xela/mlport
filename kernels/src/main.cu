@@ -6,6 +6,7 @@
 
 #include "harness/axpy.h"
 #include "harness/reduction.h"
+#include "harness/matmul.h"
 #include "ck.cuh"
 #include "bench.cuh"
 
@@ -24,6 +25,9 @@ static std::string args(int argc, char** argv, const char* key, const std::strin
 int main(int argc, char** argv) {
 
     int n = argi(argc, argv, "--n", 1 << 26);
+    int M_dim = argi(argc, argv, "--M", 1024);
+    int K_dim = argi(argc, argv, "--K", 1024);
+    int N_dim = argi(argc, argv, "--N", 1024);
     int block = argi(argc, argv, "--block", 256);
     int grid = argi(argc, argv, "--grid", 152);
     int warmup = argi(argc, argv, "--warmup", 100);
@@ -40,6 +44,11 @@ int main(int argc, char** argv) {
         ReductionRunConfig cfg {n, block, grid, warmup, iters, test, v};
         run_reduction(cfg);
     }
+    else if (kernel == "matmul"){
+        MatMulRunConfig cfg {M_dim, K_dim, N_dim, block, grid, warmup, iters, test, v};
+        run_matmul(cfg);
+    }
+
 
     return 0;
 }

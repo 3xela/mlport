@@ -1,11 +1,12 @@
 #pragma once
 
 struct MatMulRunConfig{
-    int N;
-    int M;
-    int K;
+    int const M;
+    int const K;
+    int const N;
     int block;
     int grid;
+    int warmup;
     int iters;
     bool test;
     int v;

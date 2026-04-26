@@ -14,8 +14,10 @@ TARGET := $(BIN_DIR)/main
 SRCS := src/main.cu \
         src/harness/axpy.cu \
         src/harness/reduction.cu \
+		src/harness/matmul.cu \
         src/kernels/axpy.cu \
 		src/kernels/reduction.cu \
+		src/kernels/matmul.cu
 
 OBJS := $(patsubst src/%.cu,$(BUILD_DIR)/%.o,$(SRCS))
 
