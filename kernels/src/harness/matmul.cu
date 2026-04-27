@@ -13,6 +13,7 @@
 
 LaunchFn matmul_launchers[] = {
     matmul_launch_v0,
+    matmul_launch_v1,
 };
 
 struct MatMulRunConfig{
@@ -120,9 +121,10 @@ int run_matmul(const MatMulRunConfig& cfg){
         ck(cudaGetLastError());
         double flops = 2.0 * (double)M * N * K; 
         double gflops = flops / (ms * 1e-3) / 1e9;
-        double tflops = gflops / 1000;
-
-        std::printf("kernel=matmul:%i N=%i K=%i M =%i GFLOPS:%.2f", v, N, M, K, gflops);
+        double tflops = gflops / 1000.0;
+        double pct = tflops / 35.58 * 100.0;
+        std::printf("kernel=matmul:%i M=%d N=%d K=%d gflops=%.1f tflops=%.2f pct_peak=%.1f%%\n",
+            v, M, N, K, gflops, tflops, pct);
     }
 
 

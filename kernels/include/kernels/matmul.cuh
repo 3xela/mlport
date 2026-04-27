@@ -13,3 +13,4 @@ struct MatMulCtx {
 };
 
 void matmul_launch_v0(void* p);
+void matmul_launch_v1(void* p);
