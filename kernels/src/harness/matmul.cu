@@ -95,7 +95,7 @@ int run_matmul(const MatMulRunConfig& cfg){
     ck(cudaMalloc(&d_C, C_bytes));
     
     ck(cudaMemcpy(d_A, h_A, A_bytes, cudaMemcpyHostToDevice));
-    ck(cudaMemcpy(d_B, h_B, A_bytes, cudaMemcpyHostToDevice));
+    ck(cudaMemcpy(d_B, h_B, B_bytes, cudaMemcpyHostToDevice));
 
     MatMulCtx ctx{M, K, N, d_A, d_B, d_C, block};
 
