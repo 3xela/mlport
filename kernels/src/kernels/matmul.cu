@@ -100,6 +100,6 @@ void matmul_launch_v1(void* p){
 void matmul_launch_v2(void* p){
     auto* c = (MatMulCtx*)p;
     dim3 block(16,16);
-    dim3 grid((c->N + 31) / 32, (c->M + 31) / 32);
+    dim3 grid((c->N + 127) / 128, (c->M + 127) / 128);
     matmul_kernel_v2<<<grid, block>>>(c->M, c->K, c->N, c->A, c->B, c->C);
 }
