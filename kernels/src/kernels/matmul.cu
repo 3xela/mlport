@@ -48,7 +48,7 @@ static __global__ void matmul_kernel_v1(const int M, const int K, const int N, c
 }
 
 static __global__ void matmul_kernel_v2(const int M, const int K, const int N, const float* A, const float* B, float* C){
-    constexpr int BM = 128, BN = 128, BK = 32;
+    constexpr int BM = 128, BN = 128, BK = 32; // TODO make sure M, N, K are multiples of 128, 128, 32 resp. 
     
     int block_row = blockIdx.y * BM;
     int block_col = blockIdx.x * BN;
@@ -63,24 +63,48 @@ static __global__ void matmul_kernel_v2(const int M, const int K, const int N, c
 
     __shared__ float As[BM * BK];
     __shared__ float Bs[BK * BN];
-    float acc[64];
+    float acc[64] = {0.0f};
 
     for (int k_tile = 0; k_tile < K; k_tile += BK){
-        As[ty * BK + tx] = A[ty * K + k_tile + tx]; 
-        Bs[ty * BN + tx] = B[(k_tile + ty) * N + tx];
+        for (int load_iter = 0; load_iter < 16; load_iter++){
+            int flat = load_iter * 256 + tid;
+
+            int A_tile_row = flat / BK; 
+            int A_tile_col = flat % BK;
+
+            int B_tile_row = flat / BN;
+            int B_tile_col = flat % BN;
+
+            int A_global_row = block_row + A_tile_row;
+            int A_global_col = k_tile + A_tile_col;
+
+            int B_global_row = k_tile + B_tile_row;
+            int B_global_col = block_col + B_tile_col;
+
+            As[flat] = A[A_global_row * K + A_global_col];
+            Bs[flat] = B[B_global_row * N + B_global_col];
+        }
         __syncthreads();
         for (int k = 0; k < BK; k++){
             float a_frag[8];
             float b_frag[8];
-
-            for (int j = 0; j < 8; j++){
-                a_frag[j] = As[ty * j + tx]
-                b_frag[j] = Bs[ty * BN + j]
+            for(int l = 0; l < 8; l++){
+                a_frag[l] = As[(thread_row + l) * BK + k];
+                b_frag[l] = Bs[k * BN + (thread_col + l)];
+            }
+            for (int i = 0; i < 8; i++){ //row
+                for (int j = 0; j < 8; j++){ //col
+                    acc[i * 8 + j] += a_frag[i] * b_frag[j];
+                }
             }
         }
         __syncthreads();
     }
-
+    for (int i = 0 ; i < 8 ; i++){
+        for (int j = 0; j < 8; j++){
+            C[(block_row + thread_row + i) * N + (block_col + thread_col + j)]= acc[i * 8 + j];
+        }
+    }
 }
 
 void matmul_launch_v0(void* p){

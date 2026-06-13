@@ -14,6 +14,7 @@
 LaunchFn matmul_launchers[] = {
     matmul_launch_v0,
     matmul_launch_v1,
+    matmul_launch_v2,
 };
 
 struct MatMulRunConfig{

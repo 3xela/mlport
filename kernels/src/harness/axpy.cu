@@ -21,7 +21,7 @@ struct AxpyRunConfig {
     int block;
     int warmup;
     int iters;
-    bool test;
+    int test;
     int v;
 };
 
