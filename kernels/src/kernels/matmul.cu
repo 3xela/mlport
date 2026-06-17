@@ -48,7 +48,7 @@ static __global__ void matmul_kernel_v1(const int M, const int K, const int N, c
 }
 
 static __global__ void matmul_kernel_v2(const int M, const int K, const int N, const float* A, const float* B, float* C){
-    constexpr int BM = 128, BN = 128, BK = 32; // TODO make sure M, N, K are multiples of 128, 128, 32 resp. 
+    constexpr int BM = 128, BN = 128, BK = 32, pad = 1; // TODO make sure M, N, K are multiples of 128, 128, 32 resp. 
     
     int block_row = blockIdx.y * BM;
     int block_col = blockIdx.x * BN;
@@ -61,7 +61,7 @@ static __global__ void matmul_kernel_v2(const int M, const int K, const int N, c
 
     int tid = ty * blockDim.x + tx;
 
-    __shared__ float As[BM * BK];
+    __shared__ float As[BK * (BM + pad)];
     __shared__ float Bs[BK * BN];
     float acc[64] = {0.0f};
 
@@ -81,7 +81,7 @@ static __global__ void matmul_kernel_v2(const int M, const int K, const int N, c
             int B_global_row = k_tile + B_tile_row;
             int B_global_col = block_col + B_tile_col;
 
-            As[flat] = A[A_global_row * K + A_global_col];
+            As[A_tile_col * (BM + pad) + A_tile_row] = A[A_global_row * K + A_global_col];
             Bs[flat] = B[B_global_row * N + B_global_col];
         }
         __syncthreads();
@@ -89,7 +89,7 @@ static __global__ void matmul_kernel_v2(const int M, const int K, const int N, c
             float a_frag[8];
             float b_frag[8];
             for(int l = 0; l < 8; l++){
-                a_frag[l] = As[(thread_row + l) * BK + k];
+                a_frag[l] = As[k * (BM + pad)+ (thread_row + l)]; 
                 b_frag[l] = Bs[k * BN + (thread_col + l)];
             }
             for (int i = 0; i < 8; i++){ //row
