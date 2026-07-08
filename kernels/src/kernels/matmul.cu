@@ -1,8 +1,12 @@
 #include "kernels/matmul.cuh"
 
 #include <cuda_runtime.h>
+#include <mma.h>
 #include <cmath>
+#include <cuda_fp16.h>   
 #include <algorithm>
+
+using namespace nvcuda;
 
 static __global__ void matmul_kernel_v0(const int M, const int K, const int N, const float* A, const float* B, float* C){
     int i = blockIdx.y * blockDim.y + threadIdx.y;
@@ -107,6 +111,92 @@ static __global__ void matmul_kernel_v2(const int M, const int K, const int N, c
     }
 }
 
+static __global__ void wmma_matmul_kernel_v0(const int M, const int K, const int N, const half* A, const half* B, float* C){
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
+    wmma::fill_fragment(c_frag, 0.0f);
+
+    const int ld_A = K;
+    const int ld_B = N;
+    const int ld_C = N;
+    
+    wmma::load_matrix_sync(a_frag, A, ld_A);
+    wmma::load_matrix_sync(b_frag, B, ld_B);
+    wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+    store_matrix_sync(C, c_frag, ld_C, wmma::mem_row_major);
+
+}
+
+static __global__ void wmma_matmul_kernel_v1(const int M, const int K, const int N, const half* A, const half* B, float* C){
+    int warp_row = blockIdx.y * 16;
+    int warp_col = blockIdx.x * 16;
+
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
+    wmma::fill_fragment(c_frag, 0.0f);
+
+    const int ld_A = K;
+    const int ld_B = N;
+    const int ld_C = N;
+    
+    for ( int i = 0; i< K/16; i++){
+        wmma::load_matrix_sync(a_frag, A + warp_row  * K + i * 16, ld_A);
+        wmma::load_matrix_sync(b_frag, B + i * 16 * N + warp_col, ld_B);
+        wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+    }
+
+    wmma::store_matrix_sync(C + warp_row * N + warp_col, c_frag, ld_C, wmma::mem_row_major);
+
+}
+
+static __global__ void wmma_matmul_kernel_v2(const int M, const int K, const int N, const half* A, const half* B, float* C){
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
+
+    constexpr int BM = 32, BN = 64, BK = 32;
+
+    int tid = threadIdx.x;
+    int warp_id = threadIdx.x / 32;
+    int wr = warp_id / 4;
+    int wc = warp_id % 4;
+    int warp_row = blockIdx.y * BM + wr * 16;
+    int warp_col = blockIdx.x * BN + wc * 16;
+
+    __shared__ half As[BM * BK];
+    __shared__ half Bs[BK * BN];
+    
+    const int ld_A = K;   // global strides (cooperative load + store)
+    const int ld_B = N;
+    const int ld_C = N;
+            wmma::fill_fragment(c_frag, 0.0f);
+
+    for (int k_tile = 0; k_tile < K; k_tile += BK){
+        for (int i = 0; i < 4; i++){
+            int flat = tid + 256 * i;
+            int tile_row = flat / BK;
+            int tile_col = flat % BK;
+            As[flat] = A[(blockIdx.y * BM + tile_row) * K + (k_tile + tile_col)];
+        }
+        for (int i = 0; i < 8; i++){
+            int flat = tid + 256 * i;
+            int tile_row = flat / BN;
+            int tile_col = flat % BN;
+            Bs[flat] = B[(k_tile + tile_row) * N + (blockIdx.x * BN + tile_col)];
+        }
+        __syncthreads();
+        for ( int ks = 0; ks < BK/16; ks++){
+            wmma::load_matrix_sync(a_frag, As + (wr * 16) * BK + ks * 16, BK);
+            wmma::load_matrix_sync(b_frag, Bs + (ks * 16) * BN + (wc * 16), BN);
+            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+        }
+        __syncthreads();
+    }
+    wmma::store_matrix_sync(C + warp_row * N + warp_col, c_frag, ld_C, wmma::mem_row_major);
+}
+
 void matmul_launch_v0(void* p){
     auto* c = (MatMulCtx*)p;
     dim3 block(16,16);
@@ -126,4 +216,21 @@ void matmul_launch_v2(void* p){
     dim3 block(16,16);
     dim3 grid((c->N + 127) / 128, (c->M + 127) / 128);
     matmul_kernel_v2<<<grid, block>>>(c->M, c->K, c->N, c->A, c->B, c->C);
+}
+
+void matmul_launch_v3(void* p){
+    auto* c = (WMMAMulCtx*)p;
+    wmma_matmul_kernel_v0<<<1,32>>>(c->M, c->K, c->N, c->A, c->B, c->C);
+}
+
+void matmul_launch_v4(void* p){
+    auto* c = (WMMAMulCtx*)p;
+    dim3 grid(c->N/16, c->M/16);
+    wmma_matmul_kernel_v1<<<grid,32>>>(c->M, c->K, c->N, c->A, c->B, c->C);
+}
+
+void matmul_launch_v5(void* p){
+    auto* c = (WMMAMulCtx*)p;
+    dim3 grid(c->N/64, c->M/32);
+    wmma_matmul_kernel_v2<<<grid,256>>>(c->M, c->K, c->N, c->A, c->B, c->C);
 }
