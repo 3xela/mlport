@@ -1,5 +1,6 @@
 #include "kernels/matmul.cuh"
 
+#include <cstdio>
 #include <cuda_runtime.h>
 #include <mma.h>
 #include <cmath>
@@ -156,6 +157,7 @@ static __global__ void wmma_matmul_kernel_v2(const int M, const int K, const int
     wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag;
     wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
 
+    constexpr int BN_stride = 64 + 8;
     constexpr int BM = 32, BN = 64, BK = 32;
 
     int tid = threadIdx.x;
@@ -166,7 +168,7 @@ static __global__ void wmma_matmul_kernel_v2(const int M, const int K, const int
     int warp_col = blockIdx.x * BN + wc * 16;
 
     __shared__ half As[BM * BK];
-    __shared__ half Bs[BK * BN];
+    __shared__ half Bs[BK * BN_stride];
     
     const int ld_A = K;   // global strides (cooperative load + store)
     const int ld_B = N;
@@ -184,12 +186,12 @@ static __global__ void wmma_matmul_kernel_v2(const int M, const int K, const int
             int flat = tid + 256 * i;
             int tile_row = flat / BN;
             int tile_col = flat % BN;
-            Bs[flat] = B[(k_tile + tile_row) * N + (blockIdx.x * BN + tile_col)];
+            Bs[tile_row * BN_stride + tile_col] = B[(k_tile + tile_row) * N + (blockIdx.x * BN + tile_col)];
         }
         __syncthreads();
         for ( int ks = 0; ks < BK/16; ks++){
             wmma::load_matrix_sync(a_frag, As + (wr * 16) * BK + ks * 16, BK);
-            wmma::load_matrix_sync(b_frag, Bs + (ks * 16) * BN + (wc * 16), BN);
+            wmma::load_matrix_sync(b_frag, Bs + (ks * 16) * BN_stride + (wc * 16), BN_stride);
             wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
         }
         __syncthreads();
@@ -220,6 +222,10 @@ void matmul_launch_v2(void* p){
 
 void matmul_launch_v3(void* p){
     auto* c = (WMMAMulCtx*)p;
+    if (c->M != 16 || c->N != 16 || c->K != 16){ 
+        std::fprintf(stderr, "M,N,K must be equal to 16\n");
+        std::exit(1);
+    }
     wmma_matmul_kernel_v0<<<1,32>>>(c->M, c->K, c->N, c->A, c->B, c->C);
 }
 

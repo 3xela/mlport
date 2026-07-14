@@ -58,11 +58,13 @@ int run_matmul(const MatMulRunConfig& cfg){
     size_t B_bytes = (size_t)K*N * sizeof(float);
     size_t C_bytes = (size_t)M*N * sizeof(float);
 
-    float *h_A, *h_B, *h_C, *ref_C;
+    float *h_A, *h_B, *h_C, *ref_C = nullptr;
+    if (test){
+        ck(cudaMallocHost(&ref_C, C_bytes));
+    }
     ck(cudaMallocHost(&h_A, A_bytes));
     ck(cudaMallocHost(&h_B, B_bytes));
     ck(cudaMallocHost(&h_C, C_bytes));
-    ck(cudaMallocHost(&ref_C, C_bytes));
 
     std::mt19937 gen(42);
     std::uniform_real_distribution<float> dist(-10, 10);
@@ -81,17 +83,19 @@ int run_matmul(const MatMulRunConfig& cfg){
     }
 
     // ---- reference: WMMA sees fp16-rounded inputs, fp32 accumulate ----
-    for (int i = 0; i < M; i++){
-        for (int j = 0; j < N; j++){
-            float acc = 0.0f;
-            for (int k = 0; k < K; k++){
-                if (is_wmma) {
-                    acc += __half2float(h_A_half[i*K + k]) * __half2float(h_B_half[k*N + j]);
-                } else {
-                    acc += h_A[i*K + k] * h_B[k*N + j];
+    if (test){
+        for (int i = 0; i < M; i++){
+            for (int j = 0; j < N; j++){
+                float acc = 0.0f;
+                for (int k = 0; k < K; k++){
+                    if (is_wmma) {
+                        acc += __half2float(h_A_half[i*K + k]) * __half2float(h_B_half[k*N + j]);
+                    } else {
+                        acc += h_A[i*K + k] * h_B[k*N + j];
+                    }
                 }
+                ref_C[i*N + j] = acc;
             }
-            ref_C[i*N + j] = acc;
         }
     }
 
@@ -164,7 +168,9 @@ int run_matmul(const MatMulRunConfig& cfg){
     ck(cudaFreeHost(h_A));
     ck(cudaFreeHost(h_B));
     ck(cudaFreeHost(h_C));
-    ck(cudaFreeHost(ref_C));
+    if (test){
+        ck(cudaFreeHost(ref_C));
+    }
     if (h_A_half) ck(cudaFreeHost(h_A_half));
     if (h_B_half) ck(cudaFreeHost(h_B_half));
 
