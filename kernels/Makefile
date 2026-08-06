@@ -1,7 +1,7 @@
 CUDA_HOME ?= /usr/local/cuda
 NVCC := $(CUDA_HOME)/bin/nvcc
 
-ARCH ?= sm_86
+ARCH ?= sm_90a
 CXXFLAGS := -O3 -lineinfo -arch=$(ARCH) --ptxas-options=-v
 INCLUDES := -Iinclude -Isrc
 

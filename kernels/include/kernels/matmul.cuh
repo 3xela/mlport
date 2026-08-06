@@ -28,3 +28,5 @@ void matmul_launch_v2(void* p);
 void matmul_launch_v3(void* p);
 void matmul_launch_v4(void* p);
 void matmul_launch_v5(void* p);
+void matmul_launch_v6(void* p);
+void matmul_launch_v7(void* p);

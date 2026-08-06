@@ -64,7 +64,6 @@ int main(int argc, char** argv) {
         MatMulRunConfig cfg {M_dim, K_dim, N_dim, block, grid, warmup, iters, test, v};
         run_matmul(cfg);
     }
-
-
+    
     return 0;
 }

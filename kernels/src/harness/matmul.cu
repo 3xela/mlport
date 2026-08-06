@@ -18,6 +18,8 @@ LaunchFn matmul_launchers[] = {
     matmul_launch_v3,          // WMMA
     matmul_launch_v4,
     matmul_launch_v5,
+    matmul_launch_v6,
+    matmul_launch_v7,
 };
 
 struct MatMulRunConfig{
@@ -151,8 +153,8 @@ int run_matmul(const MatMulRunConfig& cfg){
         double flops  = 2.0 * (double)M * N * K;
         double gflops = flops / (ms * 1e-3) / 1e9;
         double tflops = gflops / 1000.0;
-        // NOTE: fp16 tensor peak on 3090 is NOT 35.58 — verify against datasheet before trusting this
-        double peak_tflops = is_wmma ? 71.0 : 35.58;
+        // NOTE: fp16 tensor peak on 3090 is NOT 35.58 — verify against datasheet before trusting this. 3090: 71.0 : 35.58
+        double peak_tflops = is_wmma ? 989.0 : 67.00;
         double pct = tflops / peak_tflops * 100.0;
         std::printf("kernel=matmul:%i M=%d N=%d K=%d gflops=%.1f tflops=%.2f pct_peak=%.1f%%\n",
             v, M, N, K, gflops, tflops, pct);
