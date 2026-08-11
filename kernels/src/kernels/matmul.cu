@@ -308,6 +308,7 @@ static __global__ void wmma_matmul_kernel_v4(const int M, const int K, const int
     int tx = threadIdx.x; // 0 to 31
 
     int flat_tid = ty * blockDim.x + tx;
+    int warp = flat_tid / 32;
 
     int threads = blockDim.x * blockDim.y;
 
@@ -323,7 +324,10 @@ static __global__ void wmma_matmul_kernel_v4(const int M, const int K, const int
     // As is 128 by 32
     // Bs is 32 by 128
     
-    // 4 by 2 warps. warp = wy * 4 + wx
+    // 4 by 2 warps. warp = wy * 2 + wx
+
+    int warp_row = warp / 2;
+    int warp_col = warp % 2;
 
     // 256 threads per block. a thread copies 16 elts of As and 16 of Bs
 
